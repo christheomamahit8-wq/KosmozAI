@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KosmozAI Canggih</title>
+<style>
+body, html {
+  margin:0; padding:0; height:100%; font-family:Arial, sans-serif;
+  background:#000; color:white; display:flex; flex-direction:column;
+}
+#header {
+  display:flex; align-items:center; padding:10px 20px; background:#111;
+}
+#logo { width:32px; height:32px; margin-right:10px; }
+#title { font-size:18px; font-weight:bold; flex:1; }
+#deleteBtn {
+  margin-left:6px; padding:6px 12px; border:none; border-radius:20px;
+  cursor:pointer; font-weight:bold; background:#dc3545; color:white;
+}
+#deleteBtn:hover { background:#a71d2a; }
+
+#chat-container {
+  flex:1; display:flex; flex-direction:column; height:calc(100% - 52px);
+}
+#messages {
+  flex:1; padding:20px; overflow-y:auto; background:#000;
+  display:flex; flex-direction:column; gap:10px; scroll-behavior:smooth;
+}
+.message {
+  font-size:14px; line-height:1.4; max-width:75%; word-wrap:break-word;
+  transition: all 0.3s ease;
+}
+.user {
+  align-self:flex-end; background:#007bff; color:white; padding:10px 14px;
+  border-radius:16px; border-bottom-right-radius:0;
+}
+.ai {
+  align-self:flex-start; color:white; padding:10px 14px;
+  background: rgba(255,255,255,0.05); border-radius:16px; border-bottom-left-radius:0;
+}
+.loading {
+  align-self:flex-start; color:#aaa; font-style:italic; background: rgba(255,255,255,0.05);
+  padding:10px 14px; border-radius:16px; border-bottom-left-radius:0;
+  font-style:italic;
+}
+
+#input-container {
+  display:flex; padding:12px; border-top:1px solid #444; background:#111;
+}
+#input {
+  flex:1; padding:12px; border:none; outline:none; font-size:14px;
+  background:#222; color:white; border-radius:8px;
+}
+#send {
+  margin-left:6px; padding:10px 14px; border:none; border-radius:8px;
+  cursor:pointer; font-weight:bold; color:white; background:#007bff;
+}
+#send:hover { background:#0056b3; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <img id="logo" src="https://i.ibb.co/2NQF7Pm/kosmozai-logo.png" alt="KosmozAI Logo">
+  <div id="title">KosmozAI</div>
+  <button id="deleteBtn">Hapus Chat</button>
+</div>
+
+<div id="chat-container">
+  <div id="messages"></div>
+  <div id="input-container">
+    <input id="input" type="text" placeholder="Tanya KosmozAI..." />
+    <button id="send">Kirim</button>
+  </div>
+</div>
+
+<script>
+const messagesEl = document.getElementById("messages");
+const inputEl = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const deleteBtn = document.getElementById("deleteBtn");
+
+// Masukkan API Key OpenAI-mu
+const OPENAI_API_KEY = "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";
+
+// Load chat history
+let history = JSON.parse(localStorage.getItem("kosmozHistory") || "[]");
+history.forEach(h => addMessage(h.text,h.sender));
+
+function addMessage(text,sender){
+  const msgEl = document.createElement("div");
+  msgEl.className = "message "+sender;
+  msgEl.textContent = text;
+  messagesEl.appendChild(msgEl);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  history.push({text,sender});
+  localStorage.setItem("kosmozHistory", JSON.stringify(history));
+}
+
+// AI typing animation
+function addLoading(){
+  const loadEl = document.createElement("div");
+  loadEl.className = "message loading";
+  loadEl.textContent = "KosmozAI sedang mengetik...";
+  messagesEl.appendChild(loadEl);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return loadEl;
+}
+
+// Kirim ke OpenAI dengan system prompt
+async function sendMessage(){
+  const userText = inputEl.value.trim();
+  if(!userText) return;
+  addMessage(userText,"user");
+  inputEl.value="";
+  const loadingEl = addLoading();
+  try{
+    const res = await fetch("https://api.openai.com/v1/chat/completions",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model:"gpt-3.5-turbo",
+        messages: [
+          {role: "system", content: "Kamu adalah asisten pintar bernama KosmozAI. Jawablah semua pertanyaan dengan benar, jelas, dan ringkas. Jika tidak tahu, katakan jujur dan sopan."},
+          {role:"user", content:userText}
+        ],
+        temperature:0,
+        max_tokens:300
+      })
+    });
+    const data = await res.json();
+    const aiText = data?.choices?.[0]?.message?.content || "KosmozAI tidak merespon 😅";
+    loadingEl.remove();
+    addMessage(aiText,"ai");
+  }catch(e){
+    loadingEl.remove();
+    addMessage("Terjadi error saat memanggil KosmozAI 😢","ai");
+    console.error(e);
+  }
+}
+
+// Hapus chat
+deleteBtn.addEventListener("click", ()=>{
+  if(confirm("Hapus semua chat?")){
+    history=[];
+    localStorage.removeItem("kosmozHistory");
+    messagesEl.innerHTML="";
+  }
+});
+
+// Event listener
+sendBtn.addEventListener("click",sendMessage);
+inputEl.addEventListener("keypress", e=>{
+  if(e.key==="Enter") sendMessage();
+});
+</script>
+
+</body>
+</html>
